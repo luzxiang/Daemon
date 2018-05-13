@@ -1,0 +1,59 @@
+#!/bin/bash
+source /etc/profile
+slp=0
+argv=0
+if [[ $# != 0 ]];then
+    argv=${1}
+fi
+# if argv is digt
+if [[ ${argv} != *[!0-9]* ]];then
+    slp=${argv}
+fi
+
+## add the servers into the PRO_DIR[], add the pro args into the PRO_ARGS[] if necessary
+i=0
+PRO_DIR[$i]="/root/Demo/demo/Debug/demo";PRO_ARGS[$i]="log:info";let i+=1
+#PRO_DIR[$i]="/home/luzx/Demo/demo/Debug/demo1";PRO_ARGS[$i]="log:";let i+=1
+#PRO_DIR[$i]="/home/luzx/Demo/demo/Debug/demo2";PRO_ARGS[$i]="log:";let i+=1
+
+get_pid(){
+    pname=${1}
+    n=`ps aux|grep -v grep|grep -v "${pname}\.log"|grep -w "${pname}"|awk -F' ' '{print $2}'`
+    return $n
+}
+get_pnum(){
+    pname=${1}
+    n=`ps aux|grep -v grep|grep -v "${pname}\.log"|grep -w "${pname}"|wc -l`
+    return $n
+}
+
+while [[ 1 ]];do
+    for((i=0;i<${#PRO_DIR[@]};i++));do
+        pro_dir=${PRO_DIR[$i]}
+        pro_args=${PRO_ARGS[$i]}
+        pro_name=`basename ${pro_dir}`
+
+        get_pnum "$pro_name"
+        PRO_NUM=$?
+        if [[ "${argv}" == "restart" ]] || [[ ${PRO_NUM} -gt 1 ]];then
+            `ps aux |grep -v grep|grep "${pro_name}"|awk -F' ' '{print $2}'|xargs kill -9`
+            nohup ${pro_dir} ${pro_args} > /dev/null 2>&1 &
+            printf "[%s] %s %s is running! kill all and restart...\n" `date "+%T"` ${PRO_NUM} ${pro_dir}
+        elif [[ ${PRO_NUM} -lt 1 ]];then
+            nohup ${pro_dir} ${pro_args} > /dev/null 2>&1 &
+            printf "[%s] %s %s is running! restart...\n" `date "+%T"` ${PRO_NUM} ${pro_dir}
+        fi
+
+        get_pid "${pro_name}"
+        pid=$?
+        printf "[%s] %s %s[PID=%d] is running!\n" `date "+%T"` ${PRO_NUM} ${pro_dir} ${pid}
+    done 
+## scan the server per ${argv} second and forever,
+## but if ${argv} == 0 scan once and break it  
+    if [ ${slp} -gt 0 ];then
+        sleep ${slp}
+    else
+        break
+    fi
+done
+
